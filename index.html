@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TeaHack // Lua Obfuscator v3</title>
+<style>
+  :root{--bg:#0a0a0c;--panel:#111114;--panel2:#17171c;--line:#23232b;--txt:#d7d7e0;--dim:#6a6a7a;--acc:#39ff9e;--acc2:#ff2e88}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(900px 500px at 15% -10%,#1a1030 0%,transparent 60%),radial-gradient(700px 400px at 90% 110%,#0d2a1e 0%,transparent 60%),var(--bg);color:var(--txt);font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;min-height:100vh;padding:28px 18px 60px}
+  .wrap{max-width:1180px;margin:0 auto}
+  header{display:flex;align-items:center;gap:14px;margin-bottom:22px;flex-wrap:wrap}
+  .logo{font-size:26px;font-weight:800;letter-spacing:-1px;background:linear-gradient(90deg,var(--acc),#4cc9f0 60%,var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tag{font-size:11px;color:var(--dim);border:1px solid var(--line);padding:4px 9px;border-radius:999px;background:var(--panel)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 10px 40px -18px #000}
+  .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:2px;color:var(--dim);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+  .panel h2 span{color:var(--acc);font-size:10px;letter-spacing:1px}
+  textarea{width:100%;height:440px;resize:vertical;background:#0b0b0f;color:#c8ffdd;border:1px solid var(--line);border-radius:10px;padding:12px;font-family:inherit;font-size:12.5px;line-height:1.55;outline:none;tab-size:2}
+  textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px #39ff9e1a}
+  .opts{display:flex;flex-wrap:wrap;gap:8px 14px;margin:12px 0}
+  .opt{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--dim);cursor:pointer;user-select:none}
+  .opt input{accent-color:var(--acc);width:14px;height:14px;cursor:pointer}
+  .opt.on{color:var(--txt)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  button{font-family:inherit;font-size:12.5px;font-weight:700;letter-spacing:.5px;padding:11px 20px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);cursor:pointer;transition:.15s}
+  button:hover{transform:translateY(-1px);border-color:#3a3a48}
+  button.primary{background:linear-gradient(135deg,#0f5132,#0a2e1f);border-color:#1c7a4b;color:var(--acc);box-shadow:0 0 24px -6px #39ff9e55}
+  button:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
+  .stats{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--dim);margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+  .stats b{color:var(--acc)}
+  .bar{height:4px;background:#1a1a20;border-radius:99px;overflow:hidden;margin-top:10px}
+  .bar>i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--acc),#4cc9f0);transition:width .3s}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(120%);background:#0f291c;border:1px solid #1c7a4b;color:var(--acc);padding:11px 20px;border-radius:10px;font-size:12.5px;transition:.28s;z-index:99;box-shadow:0 10px 40px -10px #000}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+  .toast.err{background:#2a0f18;border-color:#7a1c3a;color:#ff6b9d}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">TeaHack Obfuscator v3</div>
+    <div class="tag">safe-rewrite</div>
+    <div class="tag">Lua 5.1</div>
+    <div class="tag">no-hang</div>
+  </header>
+  <div class="grid">
+    <div class="panel">
+      <h2>Input <span id="inLen">0 chars</span></h2>
+      <textarea id="input" spellcheck="false" placeholder="-- paste Lua here"></textarea>
+      <div class="opts" id="opts">
+        <label class="opt on"><input type="checkbox" data-k="rename" checked> Rename</label>
+        <label class="opt on"><input type="checkbox" data-k="strings" checked> Strings</label>
+        <label class="opt on"><input type="checkbox" data-k="numbers" checked> Numbers</label>
+        <label class="opt on"><input type="checkbox" data-k="opaque" checked> Opaque</label>
+        <label class="opt on"><input type="checkbox" data-k="junk" checked> Junk</label>
+        <label class="opt"><input type="checkbox" data-k="minify"> Minify</label>
+      </div>
+      <div class="row">
+        <button class="primary" id="run">OBFUSCATE</button>
+        <button class="ghost" id="sample">Sample</button>
+        <button class="ghost" id="clear">Clear</button>
+      </div>
+      <div class="bar"><i id="prog"></i></div>
+      <div class="stats" id="inStats"></div>
+    </div>
+    <div class="panel">
+      <h2>Output <span id="outLen">0 chars</span></h2>
+      <textarea id="output" spellcheck="false" readonly></textarea>
+      <div class="row">
+        <button class="primary" id="copy">Copy</button>
+        <button class="ghost" id="download">Download .lua</button>
+      </div>
+      <div class="stats" id="outStats"></div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const input=$('#input'),output=$('#output'),toastEl=$('#toast');
+function toast(m,e=false){toastEl.textContent=m;toastEl.classList.toggle('err',e);toastEl.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>toastEl.classList.remove('show'),2400);}
+
+function makeRng(seed){let s=seed>>>0||0x9e3779b9;return function(){s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296;};}
+function randName(rng,len=8){const a='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';const b=a+'0123456789';let s=a[(rng()*a.length)|0];for(let i=1;i<len;i++)s+=b[(rng()*b.length)|0];return s;}
+
+/* ---------------- TOKENIZER (linear, bounded) ---------------- */
+const KEYWORDS=new Set(['and','break','do','else','elseif','end','false','for','function','if','in','local','nil','not','or','repeat','return','then','true','until','while']);
+
+function tokenize(src){
+  const t=[];
+  let i=0,n=src.length,line=1;
+  while(i<n){
+    const c=src[i];
+    if(c===' '||c==='\t'||c==='\r'||c==='\n'){if(c==='\n')line++;i++;continue;}
+    if(c==='-'&&src[i+1]==='-'){
+      if(src[i+2]==='['){
+        let j=i+2,eq=0;while(src[j+1]==='='){eq++;j++;}
+        if(src[j+1]==='['){
+          const close=']'+'='.repeat(eq)+']';
+          const end=src.indexOf(close,j+2);
+          i=(end<0?n:end+close.length);
+          continue;
+        }
+      }
+      while(i<n&&src[i]!=='\n')i++;
+      continue;
+    }
+    if(c==='['){
+      let j=i,eq=0;while(src[j+1]==='='){eq++;j++;}
+      if(src[j+1]==='['){
+        const close=']'+'='.repeat(eq)+']';
+        const end=src.indexOf(close,j+2);
+        if(end<0){t.push({t:'string',v:src.slice(j+2),line});i=n;continue;}
+        t.push({t:'string',v:src.slice(j+2,end),line});
+        i=end+close.length;
+        continue;
+      }
+    }
+    if(/[0-9]/.test(c)||(c==='.'&&/[0-9]/.test(src[i+1]||''))){
+      const st=i;
+      if(c==='0'&&/[xX]/.test(src[i+1]||'')){i+=2;while(i<n&&/[0-9a-fA-F]/.test(src[i]))i++;}
+      else{
+        while(i<n&&/[0-9]/.test(src[i]))i++;
+        if(src[i]==='.'&&/[0-9]/.test(src[i+1]||'')){i++;while(i<n&&/[0-9]/.test(src[i]))i++;}
+        if(/[eE]/.test(src[i]||'')){i++;if(/[+-]/.test(src[i]||''))i++;while(i<n&&/[0-9]/.test(src[i]))i++;}
+      }
+      t.push({t:'number',v:src.slice(st,i),line});
+      continue;
+    }
+    if(/[A-Za-z_]/.test(c)){
+      const st=i;i++;
+      while(i<n&&/[A-Za-z0-9_]/.test(src[i]))i++;
+      const w=src.slice(st,i);
+      t.push({t:KEYWORDS.has(w)?'kw':'name',v:w,line});
+      continue;
+    }
+    if(c==='"'||c==="'"){
+      const q=c;i++;
+      let b='';
+      while(i<n&&src[i]!==q){
+        if(src[i]==='\\'){b+=src[i];b+=src[i+1]||'';i+=2;}
+        else{b+=src[i];i++;}
+      }
+      i++;
+      t.push({t:'string',v:b,line});
+      continue;
+    }
+    // operators
+    const three=src.slice(i,i+3),two=src.slice(i,i+2);
+    if(three==='...'){t.push({t:'op',v:'...',line});i+=3;continue;}
+    if(['==','~=','<=','>=','..','//','::','<<','>>'].includes(two)){t.push({t:'op',v:two,line});i+=2;continue;}
+    t.push({t:'op',v:c,line});
+    i++;
+  }
+  t.push({t:'eof',v:'',line});
+  return t;
+}
+
+/* ---------------- SAFE EMITTER (from token stream) ---------------- */
+function emit(tokens){
+  let s='';
+  let prev=null;
+  for(const tk of tokens){
+    if(tk.t==='eof')break;
+    if(tk.t==='raw'){s+=tk.v;prev=tk;continue;}
+    if(tk.t==='string'){s+=quoteLua(tk.v);prev=tk;continue;}
+    const needSpace=prev&&(
+      (prev.t==='name'||prev.t==='number'||prev.t==='kw')&&
+      (tk.t==='name'||tk.t==='number'||tk.t==='kw')
+    );
+    if(needSpace)s+=' ';
+    s+=tk.v;
+    prev=tk;
+  }
+  return s;
+}
+
+function quoteLua(s){
+  let out='"';
+  for(let i=0;i<s.length;i++){
+    const c=s[i],cc=s.charCodeAt(i);
+    if(c==='\\')out+='\\\\';
+    else if(c==='"')out+='\\"';
+    else if(c==='\n')out+='\\n';
+    else if(c==='\r')out+='\\r';
+    else if(c==='\t')out+='\\t';
+    else if(cc<32||cc>126)out+='\\'+cc;
+    else out+=c;
+  }
+  return out+'"';
+}
+
+/* ---------------- PASSES (token-level, safe) ---------------- */
+
+/* Rename: only touch names declared via `local`, function params, and for-vars.
+   Uses scope stack. Every step is O(1) per token; no recursion. */
+function passRename(tokens,rng){
+  const used=new Set();
+  function fresh(len){let n;do{n=randName(rng,len);}while(used.has(n));used.add(n);return n;}
+
+  const out=[];
+  const scopes=[new Map()];
+  const declared=new Set(); // names seen as declared somewhere
+
+  // Pre-scan to find all local-declared names (rough but safe — conservative:
+  // if a name is EVER declared local somewhere, we still only rename in scopes)
+  for(let i=0;i<tokens.length-1;i++){
+    if(tokens[i].t==='kw'&&tokens[i].v==='local'){
+      let j=i+1;
+      while(tokens[j]&&tokens[j].t==='name'){
+        declared.add(tokens[j].v);
+        j++;
+        if(tokens[j]&&tokens[j].t==='op'&&tokens[j].v===',')j++;
+        else break;
+      }
+    }
+    if(tokens[i].t==='kw'&&tokens[i].v==='function'){
+      // skip function name if named
+      let j=i+1;
+      if(tokens[j]&&tokens[j].t==='name')j++;
+      if(tokens[j]&&tokens[j].t==='op'&&tokens[j].v==='('){
+        j++;
+        while(tokens[j]&&!(tokens[j].t==='op'&&tokens[j].v===')')){
+          if(tokens[j].t==='name')declared.add(tokens[j].v);
+          j++;
+        }
+      }
+    }
+    if(tokens[i].t==='kw'&&tokens[i].v==='for'){
+      let j=i+1;
+      while(tokens[j]&&tokens[j].t==='name'){
+        declared.add(tokens[j].v);
+        j++;
+        if(tokens[j]&&tokens[j].t==='op'&&(tokens[j].v===','||tokens[j].v==='='))j++;
+        else break;
+      }
+    }
+  }
+
+  let inLocalDecl=false;
+  for(let i=0;i<tokens.length;i++){
+    const tk=tokens[i];
+
+    if(tk.t==='kw'&&tk.v==='do'){scopes.push(new Map());out.push(tk);continue;}
+    if(tk.t==='kw'&&tk.v==='end'){if(scopes.length>1)scopes.pop();out.push(tk);continue;}
+
+    if(tk.t==='kw'&&tk.v==='local'){
+      out.push(tk);
+      // collect names until '=' or non-name
+      let j=i+1;
+      while(tokens[j]&&tokens[j].t==='name'){
+        const name=tokens[j].v;
+        if(!scopes[scopes.length-1].has(name)){
+          scopes[scopes.length-1].set(name,fresh(6+((rng()*5)|0)));
+        }
+        out.push({t:'name',v:scopes[scopes.length-1].get(name),line:tokens[j].line});
+        j++;
+        if(tokens[j]&&tokens[j].t==='op'&&tokens[j].v===','){
+          out.push(tokens[j]);j++;
+        } else break;
+      }
+      i=j-1;
+      continue;
+    }
+
+    if(tk.t==='kw'&&tk.v==='function'){
+      out.push(tk);
+      let j=i+1;
+      if(tokens[j]&&tokens[j].t==='name'){out.push(tokens[j]);j++;}
+      if(tokens[j]&&tokens[j].t==='op'&&tokens[j].v==='('){
+        scopes.push(new Map());
+        out.push(tokens[j]);j++;
+        while(tokens[j]&&!(tokens[j].t==='op'&&tokens[j].v===')')){
+          if(tokens[j].t==='name'){
+            const nm=tokens[j].v;
+            const mangled=fresh(6+((rng()*5)|0));
+            scopes[scopes.length-1].set(nm,mangled);
+            out.push({t:'name',v:mangled,line:tokens[j].line});
+          } else out.push(tokens[j]);
+          j++;
+        }
+        if(tokens[j]){out.push(tokens[j]);j++;}
+        i=j-1;
+        continue;
+      }
+      i=j-1;
+      continue;
+    }
+
+    if(tk.t==='kw'&&tk.v==='for'){
+      out.push(tk);
+      // consume names, mapping them in a NEW scope
+      const newScope=new Map();
+      let j=i+1;
+      while(tokens[j]&&tokens[j].t==='name'){
+        const nm=tokens[j].v;
+        const mangled=fresh(6+((rng()*5)|0));
+        newScope.set(nm,mangled);
+        out.push({t:'name',v:mangled,line:tokens[j].line});
+        j++;
+        if(tokens[j]&&tokens[j].t==='op'&&(tokens[j].v===',')){
+          out.push(tokens[j]);j++;
+        } else break;
+      }
+      scopes.push(newScope);
+      i=j-1;
+      continue;
+    }
+
+    if(tk.t==='name'){
+      // resolve in scope chain
+      let resolved=null;
+      for(let s=scopes.length-1;s>=0;s--){
+        if(scopes[s].has(tk.v)){resolved=scopes[s].get(tk.v);break;}
+      }
+      out.push(resolved?{t:'name',v:resolved,line:tk.line}:tk);
+      continue;
+    }
+
+    out.push(tk);
+  }
+
+  return out;
+}
+
+/* Encrypt strings: replace every string token with __TH.D({...},KEY) */
+function passStrings(tokens,rng,state){
+  const key=(rng()*1e9)|0;
+  state.stringKey=key;
+  const out=[];
+  for(const tk of tokens){
+    if(tk.t==='string'){
+      const bytes=[];
+      for(let i=0;i<tk.v.length;i++){
+        const sh=(i%4)*8;
+        const kb=Math.floor(key/Math.pow(2,sh))%256;
+        bytes.push((tk.v.charCodeAt(i)^kb)&0xff);
+      }
+      out.push({t:'raw',v:'__TH.D({'+bytes.join(',')+'},'+key+')'});
+    } else {
+      out.push(tk);
+    }
+  }
+  return out;
+}
+
+/* Encode numbers: (a - b) */
+function passNumbers(tokens,rng){
+  const out=[];
+  for(const tk of tokens){
+    if(tk.t==='number'&&!/^0[xX]/.test(tk.v)){
+      const num=Number(tk.v);
+      if(!isNaN(num)&&Number.isInteger(num)&&Math.abs(num)<1e7){
+        const a=(rng()*1e4)|0;
+        out.push({t:'raw',v:'('+(num+a)+'-'+a+')'});
+      } else {
+        out.push(tk);
+      }
+    } else {
+      out.push(tk);
+    }
+  }
+  return out;
+}
+
+/* Opaque + dead code: insert after certain safe boundary tokens */
+function passOpaque(tokens,rng){
+  const out=[];
+  const injections=[
+    ()=>' if 0<0 then __TH.J() end ',
+    ()=>' local _'+randName(rng,5)+'=__TH.H('+((rng()*1e6)|0)+') ',
+    ()=>' do end ',
+    ()=>' if __TH.H(1)==__TH.H(1) then else __TH.J() end ',
+  ];
+  for(let i=0;i<tokens.length;i++){
+    const tk=tokens[i];
+    out.push(tk);
+    if(tk.t==='op'&&(tk.v===';')){
+      if(rng()<0.15){
+        const pick=injections[(rng()*injections.length)|0]();
+        out.push({t:'raw',v:pick});
+      }
+    }
+    if(tk.t==='kw'&&(tk.v==='then'||tk.v==='do')){
+      if(rng()<0.12){
+        const pick=injections[(rng()*injections.length)|0]();
+        out.push({t:'raw',v:pick});
+      }
+    }
+  }
+  return out;
+}
+
+/* Runtime header */
+function buildRuntime(rng){
+  const d=randName(rng,6),j=randName(rng,6),h=randName(rng,6);
+  return `local ${d}=function(t,k)
+  local out={}
+  for i=1,#t do
+    local sh=((i-1)%4)*8
+    local kk=math.floor(k/2^sh)%256
+    local b=t[i]
+    local c=0
+    local p=1
+    local a=b
+    local bb=kk
+    while a>0 or bb>0 do
+      local aa=a%2
+      local cc=bb%2
+      if aa~=cc then c=c+p end
+      a=math.floor(a/2)
+      bb=math.floor(bb/2)
+      p=p*2
+    end
+    out[i]=string.char(c)
+  end
+  return table.concat(out)
+end
+local ${j}=function()while true do end end
+local ${h}=function(n)return (n*1103515245+12345)%2147483648 end
+__TH=__TH or {}
+__TH.D=${d}
+__TH.J=${j}
+__TH.H=${h}`;
+}
+
+function obfuscate(src,opts,seed){
+  const rng=makeRng(seed);
+  let tokens=tokenize(src);
+  const state={};
+
+  if(opts.rename)tokens=passRename(tokens,rng);
+  if(opts.strings)tokens=passStrings(tokens,rng,state);
+  if(opts.numbers)tokens=passNumbers(tokens,rng);
+  if(opts.opaque)tokens=passOpaque(tokens,rng);
+
+  let body=emit(tokens);
+  if(opts.junk){
+    const f1=randName(rng,6),f2=randName(rng,6);
+    body='local '+f1+'=function()\n'+body+'\nend\nlocal '+f2+'=function(...)return ...end\n'+f1+'()';
+  }
+
+  let runtime=opts.strings?buildRuntime(rng):'';
+  let result=(runtime?runtime+'\n\n':'')+body;
+
+  if(opts.minify){
+    result=result.replace(/\s+/g,' ').trim();
+  }
+
+  return result;
+}
+
+/* ---------------- UI ---------------- */
+function readOpts(){const o={};document.querySelectorAll('#opts input[type=checkbox]').forEach(cb=>o[cb.dataset.k]=cb.checked);return o;}
+function updateStats(){
+  const inVal=input.value,outVal=output.value;
+  $('#inLen').textContent=inVal.length+' chars';
+  $('#outLen').textContent=outVal.length+' chars';
+  const inLines=inVal?inVal.split('\n').length:0;
+  const outLines=outVal?outVal.split('\n').length:0;
+  const ratio=inVal.length?(outVal.length/inVal.length).toFixed(2):'0';
+  $('#inStats').innerHTML=`<span>lines <b>${inLines}</b></span><span>bytes <b>${inVal.length}</b></span>`;
+  $('#outStats').innerHTML=`<span>lines <b>${outLines}</b></span><span>bytes <b>${outVal.length}</b></span><span>ratio <b>${ratio}x</b></span>`;
+}
+document.querySelectorAll('#opts input').forEach(cb=>{const s=()=>cb.closest('.opt').classList.toggle('on',cb.checked);cb.addEventListener('change',s);s();});
+input.addEventListener('input',updateStats);
+output.addEventListener('input',updateStats);
+
+$('#run').addEventListener('click',()=>{
+  const src=input.value;
+  if(!src.trim()){toast('Nothing to obfuscate.',true);return;}
+  const btn=$('#run');btn.disabled=true;btn.textContent='WORKING…';
+  const prog=$('#prog');
+  setTimeout(()=>{
+    try{
+      const seed=(Date.now()^(Math.random()*1e9))>>>0;
+      prog.style.width='60%';
+      const res=obfuscate(src,readOpts(),seed);
+      prog.style.width='100%';
+      output.value=res;updateStats();
+      toast('Obfuscated.');
+    }catch(e){
+      toast('Error: '+e.message,true);
+      console.error(e);
+    }
+    setTimeout(()=>{prog.style.width='0%';},400);
+    btn.disabled=false;btn.textContent='OBFUSCATE';
+  },20);
+});
+
+$('#copy').addEventListener('click',async()=>{
+  if(!output.value){toast('Nothing to copy.',true);return;}
+  try{await navigator.clipboard.writeText(output.value);toast('Copied.');}
+  catch{output.select();document.execCommand('copy');toast('Copied.');}
+});
+$('#download').addEventListener('click',()=>{
+  if(!output.value){toast('Nothing to download.',true);return;}
+  const blob=new Blob([output.value],{type:'text/x-lua'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='obfuscated.lua';a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('Downloaded.');
+});
+$('#clear').addEventListener('click',()=>{input.value='';output.value='';updateStats();});
+$('#sample').addEventListener('click',()=>{
+  input.value=`local function greet(name)\n    local msg = "hello, " .. name\n    print(msg)\n    return #msg\nend\n\nlocal total = 0\nfor i = 1, 5 do\n    total = total + greet("player" .. i)\nend\nprint("total length:", total)\n\nlocal config = {\n    speed = 12.5,\n    enabled = true,\n    tags = { "a", "b", "c" }\n}\n\nif config.enabled and config.speed > 10 then\n    print("fast mode")\nelse\n    print("slow mode")\nend`;
+  updateStats();
+});
+updateStats();
+</script>
+</body>
+</html>
